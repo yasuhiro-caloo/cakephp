@@ -78,14 +78,14 @@ class CacheSession implements SessionHandlerInterface
      * Method used to read from a cache session.
      *
      * @param string $id ID that uniquely identifies session in cache.
-     * @return string Session data or empty string if it does not exist.
+     * @return string|false Session data or false if it does not exist.
      */
-    public function read($id): string
+    public function read($id)
     {
         $value = Cache::read($id, $this->_options['config']);
 
         if (empty($value)) {
-            return '';
+            return false;
         }
 
         return $value;
@@ -121,13 +121,13 @@ class CacheSession implements SessionHandlerInterface
     }
 
     /**
-     * No-op method. Always returns true since cache engine don't have garbage collection.
+     * No-op method. Always returns 0 since cache engine don't have garbage collection.
      *
      * @param int $maxlifetime Sessions that have not updated for the last maxlifetime seconds will be removed.
-     * @return bool Always true.
+     * @return int|false
      */
-    public function gc($maxlifetime): bool
+    public function gc($maxlifetime)
     {
-        return true;
+        return 0;
     }
 }

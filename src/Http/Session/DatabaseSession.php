@@ -107,9 +107,9 @@ class DatabaseSession implements SessionHandlerInterface
      * Method used to read from a database session.
      *
      * @param string $id ID that uniquely identifies session in database.
-     * @return string Session data or empty string if it does not exist.
+     * @return string|false Session data or false if it does not exist.
      */
-    public function read($id): string
+    public function read($id)
     {
         /** @var string $pkField */
         $pkField = $this->_table->getPrimaryKey();
@@ -121,20 +121,14 @@ class DatabaseSession implements SessionHandlerInterface
             ->first();
 
         if (empty($result)) {
-            return '';
+            return false;
         }
 
         if (is_string($result['data'])) {
             return $result['data'];
         }
 
-        $session = stream_get_contents($result['data']);
-
-        if ($session === false) {
-            return '';
-        }
-
-        return $session;
+        return stream_get_contents($result['data']);
     }
 
     /**
@@ -180,12 +174,10 @@ class DatabaseSession implements SessionHandlerInterface
      * Helper function called on gc for database sessions.
      *
      * @param int $maxlifetime Sessions that have not updated for the last maxlifetime seconds will be removed.
-     * @return bool True on success, false on failure.
+     * @return int|false The number of deleted sessions on success, or false on failure.
      */
-    public function gc($maxlifetime): bool
+    public function gc($maxlifetime)
     {
-        $this->_table->deleteAll(['expires <' => time()]);
-
-        return true;
+        return $this->_table->deleteAll(['expires <' => time()]);
     }
 }
