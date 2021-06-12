@@ -703,61 +703,6 @@ class ExceptionRendererTest extends TestCase
     }
 
     /**
-     * Test exceptions being raised when helpers are missing.
-     *
-     * @return void
-     */
-    public function testMissingRenderSafe()
-    {
-        $exception = new MissingHelperException(['class' => 'Fail']);
-        $ExceptionRenderer = new MyCustomExceptionRenderer($exception);
-
-        /** @var \Cake\Controller\Controller|\PHPUnit\Framework\MockObject\MockObject $controller */
-        $controller = $this->getMockBuilder('Cake\Controller\Controller')
-            ->onlyMethods(['render'])
-            ->getMock();
-        $controller->viewBuilder()->setHelpers(['Fail', 'Boom']);
-        $controller->setRequest(new ServerRequest());
-        $controller->expects($this->once())
-            ->method('render')
-            ->with('missingHelper')
-            ->will($this->throwException($exception));
-
-        $ExceptionRenderer->setController($controller);
-
-        $response = $ExceptionRenderer->render();
-        $helpers = $controller->viewBuilder()->getHelpers();
-        sort($helpers);
-        $this->assertEquals([], $helpers);
-        $this->assertStringContainsString('Helper class Fail', (string)$response->getBody());
-    }
-
-    /**
-     * Test that exceptions in beforeRender() are handled by outputMessageSafe
-     *
-     * @return void
-     */
-    public function testRenderExceptionInBeforeRender()
-    {
-        $exception = new NotFoundException('Not there, sorry');
-        $ExceptionRenderer = new MyCustomExceptionRenderer($exception);
-
-        /** @var \Cake\Controller\Controller|\PHPUnit\Framework\MockObject\MockObject $controller */
-        $controller = $this->getMockBuilder('Cake\Controller\Controller')
-            ->onlyMethods(['beforeRender'])
-            ->getMock();
-        $controller->request = new ServerRequest();
-        $controller->expects($this->any())
-            ->method('beforeRender')
-            ->will($this->throwException($exception));
-
-        $ExceptionRenderer->setController($controller);
-
-        $response = $ExceptionRenderer->render();
-        $this->assertStringContainsString('Not there, sorry', (string)$response->getBody());
-    }
-
-    /**
      * Test that missing layoutPath don't cause other fatal errors.
      *
      * @return void
@@ -769,7 +714,6 @@ class ExceptionRendererTest extends TestCase
         $ExceptionRenderer = new MyCustomExceptionRenderer($exception);
 
         $controller = new Controller();
-        $controller->viewBuilder()->setHelpers(['Fail', 'Boom']);
         $controller->getEventManager()->on(
             'Controller.beforeRender',
             function (EventInterface $event) {
@@ -845,9 +789,10 @@ class ExceptionRendererTest extends TestCase
         $ExceptionRenderer->setController($controller);
 
         $response = $ExceptionRenderer->render();
-        $body = (string)$response->getBody();
-        $this->assertStringNotContainsString('test plugin error500', $body);
-        $this->assertStringContainsString('Not Found', $body);
+        $this->assertSame('text/html', $response->getType());
+        $this->assertStringContainsString('Not Found', (string)$response->getBody());
+        $this->assertSame('', $controller->viewBuilder()->getLayoutPath());
+        $this->assertSame('Error', $controller->viewBuilder()->getTemplatePath());
     }
 
     /**

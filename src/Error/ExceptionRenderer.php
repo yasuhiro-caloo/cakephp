@@ -390,29 +390,37 @@ class ExceptionRenderer implements ExceptionRendererInterface
             $this->controller->render($template);
 
             return $this->_shutdown();
+        } catch (MissingLayoutException | MissingPluginException $e) {
+            // Configuration error, bail out of everything
         } catch (MissingTemplateException $e) {
-            $attributes = $e->getAttributes();
-            if (
-                $e instanceof MissingLayoutException ||
-                (
-                    isset($attributes['file']) &&
-                    strpos($attributes['file'], 'error500') !== false
-                )
-            ) {
-                return $this->_outputMessageSafe('error500');
+            $request = $this->controller->getRequest();
+
+            // Bail out of one configuration at a time trying to find template
+            if ($request->getParam('_ext')) {
+                $this->controller->setRequest($request->withParam('_ext', null));
+
+                return $this->_outputMessage($template);
             }
 
-            return $this->_outputMessage('error500');
-        } catch (MissingPluginException $e) {
-            $attributes = $e->getAttributes();
-            if (isset($attributes['plugin']) && $attributes['plugin'] === $this->controller->getPlugin()) {
+            if ($request->getParam('prefix')) {
+                $this->controller->setRequest($request->withParam('prefix', null));
+
+                return $this->_outputMessage($template);
+            }
+
+            if ($this->controller->getPlugin()) {
                 $this->controller->setPlugin(null);
+                $this->controller->viewBuilder()->setPlugin(null);
+
+                return $this->_outputMessage($template);
             }
 
-            return $this->_outputMessageSafe('error500');
-        } catch (Throwable $e) {
-            return $this->_outputMessageSafe('error500');
+            if ($template !== 'error500') {
+                return $this->_outputMessage('error500');
+            }
         }
+
+        return $this->_outputMessageSafe('error500');
     }
 
     /**
@@ -429,11 +437,20 @@ class ExceptionRenderer implements ExceptionRendererInterface
             ->setHelpers([], false)
             ->setLayoutPath('')
             ->setTemplatePath('Error');
-        $view = $this->controller->createView('View');
+
+        try {
+            // Try with app View first with default templates
+            $view = $this->controller->createView();
+            $body = $view->render($template, 'error');
+        } catch (Throwable $e) {
+            // Try with default View
+            $view = $this->controller->createView('View');
+            $body = $view->render($template, 'error');
+        }
 
         $response = $this->controller->getResponse()
             ->withType('html')
-            ->withStringBody($view->render($template, 'error'));
+            ->withStringBody($body);
         $this->controller->setResponse($response);
 
         return $response;
